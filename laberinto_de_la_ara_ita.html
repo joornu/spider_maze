@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>La Arañita del Laberinto - Arcade Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Quicksand:wght=500;700&display=swap');
+        
+        .retro-font {
+            font-family: 'Press Start 2P', monospace;
+        }
+        .ui-font {
+            font-family: 'Quicksand', sans-serif;
+        }
+        
+        /* Efecto de brillo de neón para la estética arcade */
+        .neon-glow {
+            text-shadow: 0 0 10px rgba(168, 85, 247, 0.8), 0 0 20px rgba(168, 85, 247, 0.4);
+        }
+        
+        /* Rejilla de fondo estilo Tron */
+        body {
+            background-color: #0d0b18;
+            background-image: 
+                linear-gradient(rgba(18, 16, 35, 0.8) 0px, transparent 0px),
+                linear-gradient(90deg, rgba(32, 28, 62, 0.5) 1px, transparent 1px),
+                linear-gradient(rgba(32, 28, 62, 0.5) 1px, transparent 1px);
+            background-size: 100%, 40px 40px, 40px 40px;
+        }
+
+        canvas {
+            image-rendering: pixelated;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.9);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen text-white overflow-hidden p-2 select-none">
+
+    <!-- Contenedor Principal -->
+    <div class="w-full max-w-xl flex flex-col items-center">
+        
+        <!-- Cabecera / Título -->
+        <div class="text-center mb-2 w-full flex items-center justify-between px-2">
+            <div class="w-10"></div>
+            <h1 class="retro-font text-base md:text-xl text-purple-400 neon-glow tracking-widest flex items-center gap-2">
+                <span>🕷️</span> ARAÑITA ARCADE <span>🕷️</span>
+            </h1>
+            <button id="btn-sound" onclick="toggleMute()" class="text-lg bg-slate-900/80 hover:bg-slate-800 border border-purple-900/40 p-2 rounded-full w-10 h-10 flex items-center justify-center transition-all">🔊</button>
+        </div>
+
+        <!-- Marcadores (HUD Adaptativo) -->
+        <div class="w-full bg-slate-900/95 border border-purple-900/60 rounded-2xl p-3 mb-3 ui-font shadow-xl shadow-purple-950/20">
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="flex flex-col items-center border-r border-purple-900/30">
+                    <span class="text-gray-400 text-[10px] uppercase tracking-wider">Nivel</span>
+                    <span id="lbl-level" class="text-purple-400 text-base md:text-lg font-black">1 / 20</span>
+                </div>
+                <div class="flex flex-col items-center border-r border-purple-900/30">
+                    <span class="text-gray-400 text-[10px] uppercase tracking-wider">Tiempo</span>
+                    <span id="lbl-time" class="text-emerald-400 text-base md:text-lg font-black tracking-widest">120s</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-gray-400 text-[10px] uppercase tracking-wider">Llaves del Nivel</span>
+                    <span id="lbl-keys" class="text-amber-400 text-base md:text-lg font-black">0 / 2</span>
+                </div>
+            </div>
+            
+            <!-- Marcador de Munición de Bombas -->
+            <div id="hud-bombs" class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-purple-900/30 text-xs text-center font-bold">
+                <div class="flex items-center justify-center gap-2">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                    <span class="text-indigo-300">Bomba P1 (Espacio):</span>
+                    <span id="bombs-p1" class="text-amber-400 bg-slate-950 px-2 py-0.5 rounded">💣 1/1</span>
+                </div>
+                <div id="bombs-p2-container" class="flex items-center justify-center gap-2 hidden">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span class="text-emerald-300">Bomba P2 (Q):</span>
+                    <span id="bombs-p2" class="text-amber-400 bg-slate-950 px-2 py-0.5 rounded">💣 1/1</span>
+                </div>
+            </div>
+
+            <!-- Marcador especial de puntos para el modo 2 Jugadores -->
+            <div id="hud-versus" class="hidden grid grid-cols-2 gap-4 mt-2 pt-2 border-t border-purple-900/30 text-xs text-center font-bold">
+                <div class="flex items-center justify-center gap-2">
+                    <span class="inline-block w-3 h-3 rounded-full bg-indigo-500"></span>
+                    <span class="text-indigo-300">P1 (Morado):</span>
+                    <span id="score-p1" class="text-white text-sm bg-slate-950 px-2 rounded">0 pts</span>
+                </div>
+                <div class="flex items-center justify-center gap-2">
+                    <span class="inline-block w-3 h-3 rounded-full bg-emerald-500"></span>
+                    <span class="text-emerald-300">P2 (Verde):</span>
+                    <span id="score-p2" class="text-white text-sm bg-slate-950 px-2 rounded">0 pts</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenedor del Canvas de Juego -->
+        <div class="relative bg-black rounded-2xl border-2 border-purple-500/40 overflow-hidden w-full aspect-square max-w-[500px]">
+            <canvas id="gameCanvas" width="500" height="500" class="w-full h-full"></canvas>
+            
+            <!-- Pantallas superpuestas (Overlays para Menu / Estados) -->
+            <div id="screen-overlay" class="absolute inset-0 bg-slate-950/98 flex flex-col items-center justify-center text-center p-6 transition-all duration-300">
+                <!-- Iconos animados -->
+                <div id="overlay-icons" class="text-5xl mb-4 flex gap-4 justify-center">
+                    <span class="animate-bounce">🕷️</span>
+                </div>
+                
+                <h2 id="overlay-title" class="retro-font text-sm md:text-base text-purple-400 mb-2 leading-relaxed">¿CÓMO QUIERES JUGAR?</h2>
+                <p id="overlay-desc" class="ui-font text-xs md:text-sm text-gray-400 max-w-sm mb-6">
+                    Selecciona un modo de juego. En el laberinto, encuentra las llaves doradas para poder abrir las compuertas de seguridad. ¡Supera los 20 niveles!
+                </p>
+                
+                <!-- Opciones de Modo -->
+                <div id="menu-modes" class="flex flex-col gap-3 w-full max-w-xs">
+                    <button onclick="selectGameMode('1P')" class="retro-font text-[11px] bg-purple-600 hover:bg-purple-500 active:scale-95 text-white py-3 rounded-xl border-b-4 border-purple-800 transition-all shadow-lg shadow-purple-500/20">
+                        1 JUGADOR
+                    </button>
+                    <button onclick="selectGameMode('2P')" class="retro-font text-[11px] bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white py-3 rounded-xl border-b-4 border-emerald-800 transition-all shadow-lg shadow-emerald-500/20">
+                        2 JUGADORES (VERSUS)
+                    </button>
+                </div>
+
+                <!-- Botón de continuación/reintento oculto inicialmente -->
+                <button id="btn-continue" onclick="startGame()" class="hidden retro-font text-[11px] bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-8 py-3 rounded-xl border-b-4 border-indigo-800 transition-all shadow-lg shadow-indigo-500/20">
+                    CONTINUAR
+                </button>
+            </div>
+        </div>
+
+        <!-- Instrucciones en base al modo -->
+        <div id="help-text" class="ui-font text-xs text-gray-500 text-center mt-3 max-w-md px-4 leading-relaxed">
+            Presiona cualquier tecla de movimiento para comenzar.
+        </div>
+    </div>
+
+<script>
+// --- CONFIGURACIÓN DE AUDIO SINTÉTICO (Web Audio API) ---
+let audioCtx = null;
+let muted = false;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+function playSound(type) {
+    if (muted) return;
+    initAudio();
+    if (!audioCtx) return;
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    const now = audioCtx.currentTime;
+
+    if (type === 'step') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(260, now + 0.04);
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.04);
+        osc.start(now);
+        osc.stop(now + 0.04);
+    } else if (type === 'key') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, now); // D5
+        osc.frequency.setValueAtTime(783.99, now + 0.08); // G5
+        osc.frequency.setValueAtTime(987.77, now + 0.16); // B5
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+        osc.start(now);
+        osc.stop(now + 0.35);
+    } else if (type === 'door') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(280, now);
+        osc.frequency.linearRampToValueAtTime(80, now + 0.35);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+        osc.start(now);
+        osc.stop(now + 0.35);
+    } else if (type === 'levelUp') {
+        osc.type = 'sine';
+        const notes = [329.63, 392.00, 523.25, 659.25, 783.99, 1046.50, 1318.51];
+        notes.forEach((freq, index) => {
+            osc.frequency.setValueAtTime(freq, now + index * 0.06);
+        });
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.setValueAtTime(0.12, now + 0.35);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.55);
+        osc.start(now);
+        osc.stop(now + 0.55);
+    } else if (type === 'fail') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200, now);
+        osc.frequency.linearRampToValueAtTime(60, now + 0.6);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+        osc.start(now);
+        osc.stop(now + 0.6);
+    } else if (type === 'bomb_drop') {
+        // Silbido de lanzamiento de bomba descendente
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(700, now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + 0.2);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        osc.start(now);
+        osc.stop(now + 0.2);
+    } else if (type === 'bomb_explode') {
+        // Estruendo fuerte de baja frecuencia (explosión)
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(130, now);
+        osc.frequency.linearRampToValueAtTime(10, now + 0.5);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+        osc.start(now);
+        osc.stop(now + 0.5);
+    }
+}
+
+function toggleMute() {
+    muted = !muted;
+    const btn = document.getElementById('btn-sound');
+    btn.textContent = muted ? '🔇' : '🔊';
+}
+
+// --- VARIABLES DEL MOTOR DE JUEGO ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const lblLevel = document.getElementById('lbl-level');
+const lblTime = document.getElementById('lbl-time');
+const lblKeys = document.getElementById('lbl-keys');
+const screenOverlay = document.getElementById('screen-overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlayDesc = document.getElementById('overlay-desc');
+const overlayIcons = document.getElementById('overlay-icons');
+const menuModes = document.getElementById('menu-modes');
+const btnContinue = document.getElementById('btn-continue');
+const helpText = document.getElementById('help-text');
+const hudVersus = document.getElementById('hud-versus');
+const scoreP1Label = document.getElementById('score-p1');
+const scoreP2Label = document.getElementById('score-p2');
+
+const bombsP1Label = document.getElementById('bombs-p1');
+const bombsP2Label = document.getElementById('bombs-p2');
+const bombsP2Container = document.getElementById('bombs-p2-container');
+
+// Configuración de niveles (Dificultad escalada progresivamente de 1 a 20)
+const LEVEL_CONFIGS = [
+    { gridDim: 11, wallColor: '#3b82f6', trailColor: '#1d4ed8' }, // Nivel 1
+    { gridDim: 13, wallColor: '#10b981', trailColor: '#047857' }, // Nivel 2
+    { gridDim: 15, wallColor: '#a855f7', trailColor: '#7e22ce' }, // Nivel 3
+    { gridDim: 17, wallColor: '#f97316', trailColor: '#c2410c' }, // Nivel 4
+    { gridDim: 19, wallColor: '#ef4444', trailColor: '#b91c1c' }, // Nivel 5
+    { gridDim: 21, wallColor: '#06b6d4', trailColor: '#0e7490' }, // Nivel 6
+    { gridDim: 23, wallColor: '#eab308', trailColor: '#a16207' }, // Nivel 7
+    { gridDim: 25, wallColor: '#ec4899', trailColor: '#be185d' }, // Nivel 8
+    { gridDim: 27, wallColor: '#6366f1', trailColor: '#4338ca' }, // Nivel 9
+    { gridDim: 29, wallColor: '#84cc16', trailColor: '#4d7c0f' }, // Nivel 10
+    // --- NUEVOS NIVELES EXTRA (11-20) ---
+    { gridDim: 31, wallColor: '#38bdf8', trailColor: '#0369a1' }, // Nivel 11
+    { gridDim: 33, wallColor: '#f43f5e', trailColor: '#9f1239' }, // Nivel 12
+    { gridDim: 35, wallColor: '#00f2fe', trailColor: '#4facfe' }, // Nivel 13
+    { gridDim: 37, wallColor: '#f472b6', trailColor: '#db2777' }, // Nivel 14
+    { gridDim: 39, wallColor: '#fdba74', trailColor: '#ea580c' }, // Nivel 15
+    { gridDim: 41, wallColor: '#a7f3d0', trailColor: '#059669' }, // Nivel 16
+    { gridDim: 43, wallColor: '#c084fc', trailColor: '#6b21a8' }, // Nivel 17
+    { gridDim: 45, wallColor: '#fde047', trailColor: '#ca8a04' }, // Nivel 18
+    { gridDim: 49, wallColor: '#2dd4bf', trailColor: '#0d9488' }, // Nivel 19
+    { gridDim: 53, wallColor: '#ff0055', trailColor: '#990022' }  // Nivel 20
+];
+
+let gameMode = '1P'; // '1P' o '2P'
+let currentLevel = 1;
+let timeLeft = 120;
+let timerInterval = null;
+let gameRunning = false;
+let maze = [];
+let tileSize = 0;
+let gridWidth = 0;
+let gridHeight = 0;
+
+// Marcadores de competencia
+let scoreP1 = 0;
+let scoreP2 = 0;
+
+// Jugadores (Estructuras independientes)
+let player1 = {
+    x: 0, y: 0, radius: 0, speed: 2, keysCollected: 0, bombsLeft: 1,
+    targetAngle: 0, currentAngle: 0, active: true,
+    color: '#6366f1', legColor: '#818cf8', faceColor: '#f472b6', name: 'Jugador 1'
+};
+
+let player2 = {
+    x: 0, y: 0, radius: 0, speed: 2, keysCollected: 0, bombsLeft: 1,
+    targetAngle: 0, currentAngle: 0, active: false,
+    color: '#10b981', legColor: '#34d399', faceColor: '#fb7185', name: 'Jugador 2'
+};
+
+let totalKeysCollected = 0;
+let keys = [];
+let doors = [];
+let goal = { row: 0, col: 0 };
+
+// Lista de proyectiles de bomba y explosiones en pantalla
+let activeBombs = [];
+let activeExplosions = [];
+
+// Control de Teclado
+const keysPressed = {};
+window.addEventListener('keydown', e => { 
+    if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD","Space","KeyQ"].includes(e.code)) {
+        e.preventDefault(); // Evitar el scroll de la página en el navegador
+    }
+    keysPressed[e.code] = true; 
+    initAudio();
+
+    // Habilidades de bomba (Activadas una única vez al pulsar la tecla)
+    if (gameRunning) {
+        if (e.code === 'Space') {
+            dropBomb(player1);
+        }
+        if (e.code === 'KeyQ' && player2.active && gameMode === '2P') {
+            dropBomb(player2);
+        }
+    }
+});
+window.addEventListener('keyup', e => { keysPressed[e.code] = false; });
+
+// --- SOLTAR BOMBA ---
+function dropBomb(player) {
+    if (player.bombsLeft > 0) {
+        player.bombsLeft--;
+        playSound('bomb_drop');
+        activeBombs.push({
+            x: player.x,
+            y: player.y,
+            timer: 60, // 1 segundo (a 60 FPS)
+            radius: 50,
+            owner: player
+        });
+        updateHUD();
+    }
+}
+
+// --- ACTUALIZAR HUD ---
+function updateHUD() {
+    lblLevel.textContent = `${currentLevel} / 20`;
+    lblKeys.textContent = `${totalKeysCollected} / 2`;
+    bombsP1Label.textContent = `💣 ${player1.bombsLeft}/1`;
+    if (player2.active) {
+        bombsP2Label.textContent = `💣 ${player2.bombsLeft}/1`;
+        bombsP2Container.classList.remove('hidden');
+    } else {
+        bombsP2Container.classList.add('hidden');
+    }
+}
+
+// --- SELECCIÓN DE MODO ---
+function selectGameMode(mode) {
+    initAudio();
+    gameMode = mode;
+    
+    // Configurar visibilidad del HUD y jugadores
+    if (gameMode === '2P') {
+        player2.active = true;
+        hudVersus.classList.remove('hidden');
+        hudVersus.classList.add('grid');
+        scoreP1 = 0;
+        scoreP2 = 0;
+        scoreP1Label.textContent = "0 pts";
+        scoreP2Label.textContent = "0 pts";
+        helpText.innerHTML = "🎮 <b>P1 (Morado)</b>: Mover con Flechitas | Bomba: [Espacio]<br>🎮 <b>P2 (Verde)</b>: Mover con Teclas W, A, S, D | Bomba: [Teclado Q]<br>¡Destruyan paredes para abrir atajos sin tocar los límites exteriores!";
+    } else {
+        player2.active = false;
+        hudVersus.classList.add('hidden');
+        hudVersus.classList.remove('grid');
+        helpText.innerHTML = "🎮 Usa las <b>flechas del teclado</b> o <b>WASD</b> para moverte.<br>¡Sueltas tu bomba de nivel con el <b>[Espacio]</b> para volar paredes!";
+    }
+    
+    currentLevel = 1;
+    startGame();
+}
+
+// --- GENERACIÓN DE LABERINTOS CON VALIDACIÓN ---
+function generateMaze(dim) {
+    gridWidth = dim;
+    gridHeight = dim;
+    tileSize = canvas.width / dim;
+
+    let attempts = 0;
+    while (attempts < 100) {
+        // Inicializar laberinto lleno de paredes (1)
+        maze = Array(gridHeight).fill().map(() => Array(gridWidth).fill(1));
+
+        // Construcción del algoritmo DFS clásico
+        let stack = [];
+        let startCell = { r: 1, c: 1 };
+        maze[startCell.r][startCell.c] = 0; 
+        stack.push(startCell);
+
+        while (stack.length > 0) {
+            let current = stack[stack.length - 1];
+            let neighbors = [];
+            let dirs = [{r:-2, c:0}, {r:2, c:0}, {r:0, c:-2}, {r:0, c:2}];
+
+            for (let d of dirs) {
+                let nr = current.r + d.r;
+                let nc = current.c + d.c;
+                if (nr > 0 && nr < gridHeight - 1 && nc > 0 && nc < gridWidth - 1) {
+                    if (maze[nr][nc] === 1) {
+                        neighbors.push({r: nr, c: nc, wallR: current.r + d.r/2, wallC: current.c + d.c/2});
+                    }
+                }
+            }
+
+            if (neighbors.length > 0) {
+                let next = neighbors[Math.floor(Math.random() * neighbors.length)];
+                maze[next.wallR][next.wallC] = 0;
+                maze[next.r][next.c] = 0;
+                stack.push({r: next.r, c: next.c});
+            } else {
+                stack.pop();
+            }
+        }
+
+        // Definir Meta (Esquina opuesta habitable)
+        goal.row = gridHeight - 2;
+        goal.col = gridWidth - 2;
+        maze[goal.row][goal.col] = 0;
+
+        // Intentar colocar puertas y llaves en base al modo
+        if (placeDoorsAndKeys()) {
+            break; 
+        }
+        attempts++;
+    }
+}
+
+// Colocar puertas y llaves asegurando que el juego siempre sea ganable (Sin cierres indeseados)
+function placeDoorsAndKeys() {
+    doors = [];
+    keys = [];
+
+    // Obtener todos los espacios libres válidos (caminos)
+    let availablePaths = [];
+    for(let r = 1; r < gridHeight - 1; r++) {
+        for(let c = 1; c < gridWidth - 1; c++) {
+            if(maze[r][c] === 0 && !(r === 1 && c === 1) && !(r === goal.row && c === goal.col)) {
+                availablePaths.push({r, c});
+            }
+        }
+    }
+
+    if (availablePaths.length < 10) return false;
+
+    // Barajar aleatoriamente las posiciones de los caminos
+    availablePaths.sort(() => Math.random() - 0.5);
+
+    // Ajustes de puertas en base al Modo de Juego
+    if (gameMode === '2P') {
+        let doorRow = goal.row;
+        let doorCol = goal.col - 1;
+        
+        // Si no es un camino libre válido, buscar uno adyacente a la meta
+        if (maze[doorRow][doorCol] !== 0) {
+            doorRow = goal.row - 1;
+            doorCol = goal.col;
+        }
+
+        doors.push({ row: doorRow, col: doorCol, active: true });
+        maze[doorRow][doorCol] = 2; // Bloqueado temporalmente
+    } else {
+        let d1 = availablePaths[0];
+        let d2 = availablePaths[1];
+
+        doors.push({ row: d1.r, col: d1.c, active: true });
+        doors.push({ row: d2.r, col: d2.c, active: true });
+
+        maze[d1.r][d1.c] = 2;
+        maze[d2.r][d2.c] = 2;
+    }
+
+    // Comprobamos viabilidad por inundación desde el punto de inicio (1, 1)
+    let reachableFromStart = [];
+    let visited = Array(gridHeight).fill().map(() => Array(gridWidth).fill(false));
+    let queue = [{r: 1, c: 1}];
+    visited[1][1] = true;
+
+    while (queue.length > 0) {
+        let curr = queue.shift();
+        reachableFromStart.push(curr);
+
+        let dirs = [{r:-1,c:0},{r:1,c:0},{r:0,c:-1},{r:0,c:1}];
+        for(let d of dirs) {
+            let nr = curr.r + d.r;
+            let nc = curr.c + d.c;
+            if(nr >= 0 && nr < gridHeight && nc >= 0 && nc < gridWidth) {
+                if(!visited[nr][nc] && maze[nr][nc] === 0) { 
+                    visited[nr][nc] = true;
+                    queue.push({r: nr, c: nc});
+                }
+            }
+        }
+    }
+
+    // Buscamos ubicaciones de llaves en el área accesible inicial
+    let safeKeyLocations = reachableFromStart.filter(pos => !(pos.r === 1 && pos.c === 1));
+
+    // Si hay muy pocos caminos seguros libres antes de las puertas, recrear laberinto
+    if(safeKeyLocations.length < 6) {
+        doors.forEach(d => { maze[d.row][d.col] = 0; });
+        return false;
+    }
+
+    // Ordenamos por distancia Manhattan al origen para asegurar que las llaves queden lejos
+    safeKeyLocations.sort((a, b) => {
+        let distA = (a.r - 1) + (a.c - 1);
+        let distB = (b.r - 1) + (b.c - 1);
+        return distB - distA; 
+    });
+
+    // Colocar las 2 llaves del nivel en los caminos seguros
+    keys.push({ row: safeKeyLocations[0].r, col: safeKeyLocations[0].c, active: true });
+    keys.push({ row: safeKeyLocations[Math.min(3, safeKeyLocations.length - 1)].r, col: safeKeyLocations[Math.min(3, safeKeyLocations.length - 1)].c, active: true });
+
+    return true; 
+}
+
+// --- CONFIGURACIÓN E INICIO DE NIVEL ---
+function setupCurrentLevel() {
+    let config = LEVEL_CONFIGS[currentLevel - 1];
+    totalKeysCollected = 0;
+    activeBombs = [];
+    activeExplosions = [];
+    
+    generateMaze(config.gridDim);
+
+    // Ajustar araña 1
+    player1.radius = (tileSize * 0.55) / 2;
+    player1.x = 1 * tileSize + tileSize / 2;
+    player1.y = 1 * tileSize + tileSize / 2;
+    player1.keysCollected = 0;
+    player1.bombsLeft = 1; // Recargar 1 bomba por nivel
+    player1.speed = tileSize * 0.085; 
+
+    // Ajustar araña 2 si está activa
+    if (player2.active) {
+        player2.radius = (tileSize * 0.55) / 2;
+        player2.x = 1 * tileSize + tileSize / 2;
+        player2.y = 1 * tileSize + tileSize / 2;
+        player2.keysCollected = 0;
+        player2.bombsLeft = 1; // Recargar 1 bomba por nivel
+        player2.speed = tileSize * 0.085;
+    }
+
+    updateHUD();
+}
+
+function startGame() {
+    screenOverlay.classList.add('opacity-0', 'pointer-events-none');
+    
+    timeLeft = 120;
+    lblTime.textContent = `${timeLeft}s`;
+    
+    setupCurrentLevel();
+    
+    if(timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        if(!gameRunning) return;
+        timeLeft--;
+        lblTime.textContent = `${timeLeft}s`;
+
+        // Alerta de tiempo en rojo
+        if (timeLeft <= 10) {
+            lblTime.className = "text-red-500 text-base md:text-lg font-black tracking-widest animate-pulse";
+        } else {
+            lblTime.className = "text-emerald-400 text-base md:text-lg font-black tracking-widest";
+        }
+
+        if(timeLeft <= 0) {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            playSound('fail');
+            
+            overlayIcons.innerHTML = "🕒";
+            overlayTitle.innerHTML = "🕒 TIEMPO AGOTADO";
+            overlayDesc.textContent = `Se acabó el tiempo en el nivel ${currentLevel}. Se generará un nuevo laberinto para reintentar.`;
+            
+            // Ocultar modos, mostrar continuar
+            menuModes.classList.add('hidden');
+            btnContinue.classList.remove('hidden');
+            
+            screenOverlay.classList.remove('opacity-0', 'pointer-events-none');
+        }
+    }, 1000);
+
+    gameRunning = true;
+    requestAnimationFrame(updateAndRender);
+}
+
+// --- FÍSICAS FLUIDAS DE AMBOS JUGADORES ---
+let stepSoundTimer = 0;
+
+function updatePhysics() {
+    let p1Moved = false;
+    let p2Moved = false;
+
+    // --- MOVIMIENTO DE PLAYER 1 (Flechitas teclado) ---
+    let dx1 = 0;
+    let dy1 = 0;
+    if (keysPressed['ArrowUp']) { dy1 = -player1.speed; player1.targetAngle = -Math.PI / 2; p1Moved = true; }
+    if (keysPressed['ArrowDown']) { dy1 = player1.speed; player1.targetAngle = Math.PI / 2; p1Moved = true; }
+    if (keysPressed['ArrowLeft']) { dx1 = -player1.speed; player1.targetAngle = Math.PI; p1Moved = true; }
+    if (keysPressed['ArrowRight']) { dx1 = player1.speed; player1.targetAngle = 0; p1Moved = true; }
+
+    // En modo 1P, también se puede usar WASD para controlar al Player 1 de forma indistinta
+    if (gameMode === '1P') {
+        if (keysPressed['KeyW']) { dy1 = -player1.speed; player1.targetAngle = -Math.PI / 2; p1Moved = true; }
+        if (keysPressed['KeyS']) { dy1 = player1.speed; player1.targetAngle = Math.PI / 2; p1Moved = true; }
+        if (keysPressed['KeyA']) { dx1 = -player1.speed; player1.targetAngle = Math.PI; p1Moved = true; }
+        if (keysPressed['KeyD']) { dx1 = player1.speed; player1.targetAngle = 0; p1Moved = true; }
+    }
+
+    // Actualizar físicas P1
+    if (dx1 !== 0) {
+        player1.x += dx1;
+        if (checkWallCollision(player1.x, player1.y, player1.radius)) player1.x -= dx1;
+    }
+    if (dy1 !== 0) {
+        player1.y += dy1;
+        if (checkWallCollision(player1.x, player1.y, player1.radius)) player1.y -= dy1;
+    }
+
+    // Girar suavemente P1
+    if (p1Moved) {
+        let diff = player1.targetAngle - player1.currentAngle;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        player1.currentAngle += diff * 0.25;
+    }
+
+    // --- MOVIMIENTO DE PLAYER 2 (Únicamente WASD si está activo) ---
+    if (player2.active && gameMode === '2P') {
+        let dx2 = 0;
+        let dy2 = 0;
+        if (keysPressed['KeyW']) { dy2 = -player2.speed; player2.targetAngle = -Math.PI / 2; p2Moved = true; }
+        if (keysPressed['KeyS']) { dy2 = player2.speed; player2.targetAngle = Math.PI / 2; p2Moved = true; }
+        if (keysPressed['KeyA']) { dx2 = -player2.speed; player2.targetAngle = Math.PI; p2Moved = true; }
+        if (keysPressed['KeyD']) { dx2 = player2.speed; player2.targetAngle = 0; p2Moved = true; }
+
+        if (dx2 !== 0) {
+            player2.x += dx2;
+            if (checkWallCollision(player2.x, player2.y, player2.radius)) player2.x -= dx2;
+        }
+        if (dy2 !== 0) {
+            player2.y += dy2;
+            if (checkWallCollision(player2.x, player2.y, player2.radius)) player2.y -= dy2;
+        }
+
+        // Girar suavemente P2
+        if (p2Moved) {
+            let diff = player2.targetAngle - player2.currentAngle;
+            diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+            player2.currentAngle += diff * 0.25;
+        }
+    }
+
+    // Audio rítmico al caminar
+    if (p1Moved || p2Moved) {
+        stepSoundTimer++;
+        if (stepSoundTimer % 18 === 0) {
+            playSound('step');
+        }
+    }
+
+    // --- ACTUALIZAR BOMBAS ---
+    for (let i = activeBombs.length - 1; i >= 0; i--) {
+        let b = activeBombs[i];
+        b.timer--;
+        if (b.timer <= 0) {
+            explodeBomb(b);
+            activeBombs.splice(i, 1);
+        }
+    }
+
+    // --- ACTUALIZAR EXPLOSIONES (Animación) ---
+    for (let i = activeExplosions.length - 1; i >= 0; i--) {
+        let exp = activeExplosions[i];
+        exp.timer--;
+        if (exp.timer <= 0) {
+            activeExplosions.splice(i, 1);
+        }
+    }
+
+    // --- RECOLECCIÓN DE LLAVES Y CONTROL DE PUERTAS ---
+    keys.forEach(key => {
+        if(key.active) {
+            let keyX = key.col * tileSize + tileSize / 2;
+            let keyY = key.row * tileSize + tileSize / 2;
+            
+            // Verificar colisión P1
+            let distP1 = Math.hypot(player1.x - keyX, player1.y - keyY);
+            if(distP1 < player1.radius + tileSize * 0.3) {
+                key.active = false;
+                totalKeysCollected++;
+                playSound('key');
+                lblKeys.textContent = `${totalKeysCollected} / 2`;
+                checkAndUnlockDoors();
+            }
+
+            // Verificar colisión P2
+            if (player2.active) {
+                let distP2 = Math.hypot(player2.x - keyX, player2.y - keyY);
+                if(distP2 < player2.radius + tileSize * 0.3) {
+                    key.active = false;
+                    totalKeysCollected++;
+                    playSound('key');
+                    lblKeys.textContent = `${totalKeysCollected} / 2`;
+                    checkAndUnlockDoors();
+                }
+            }
+        }
+    });
+
+    // --- EVALUAR LLEGADA A LA META ---
+    let goalX = goal.col * tileSize + tileSize / 2;
+    let goalY = goal.row * tileSize + tileSize / 2;
+
+    // ¿Llegó P1?
+    let distP1ToGoal = Math.hypot(player1.x - goalX, player1.y - goalY);
+    if(distP1ToGoal < player1.radius + tileSize * 0.3) {
+        advanceLevel('P1');
+        return;
+    }
+
+    // ¿Llegó P2?
+    if (player2.active) {
+        let distP2ToGoal = Math.hypot(player2.x - goalX, player2.y - goalY);
+        if(distP2ToGoal < player2.radius + tileSize * 0.3) {
+            advanceLevel('P2');
+            return;
+        }
+    }
+}
+
+// --- DETONACIÓN Y DESTRUCCIÓN DE PAREDES ---
+function explodeBomb(bomb) {
+    playSound('bomb_explode');
+    
+    // Registrar animación de la explosión
+    activeExplosions.push({
+        x: bomb.x,
+        y: bomb.y,
+        maxRadius: bomb.radius,
+        timer: 15 // Durará 15 frames en pantalla
+    });
+
+    // Dimensiones de la explosión en celdas
+    let minCol = Math.max(1, Math.floor((bomb.x - bomb.radius) / tileSize));
+    let maxCol = Math.min(gridWidth - 2, Math.floor((bomb.x + bomb.radius) / tileSize));
+    let minRow = Math.max(1, Math.floor((bomb.y - bomb.radius) / tileSize));
+    let maxRow = Math.min(gridHeight - 2, Math.floor((bomb.y + bomb.radius) / tileSize));
+
+    for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+            // No destruir los límites exteriores (fila 0, última fila, columna 0, última col)
+            // Las variables minCol, maxCol, minRow, maxRow ya están restringidas de [1 a dim-2] para no tocar bordes.
+            if (maze[r][c] === 1) {
+                // Calcular distancia del centro de la celda de la pared a la bomba
+                let cellX = c * tileSize + tileSize / 2;
+                let cellY = r * tileSize + tileSize / 2;
+                let dist = Math.hypot(cellX - bomb.x, cellY - bomb.y);
+                
+                if (dist <= bomb.radius) {
+                    maze[r][c] = 0; // Transmutar pared a camino libre
+                }
+            }
+        }
+    }
+}
+
+// Abrir las compuertas al conseguir las 2 llaves del laberinto
+function checkAndUnlockDoors() {
+    if(totalKeysCollected === 2) {
+        playSound('door');
+        doors.forEach(d => {
+            d.active = false;
+            maze[d.row][d.col] = 0; // Se convierte en camino libre
+        });
+    }
+}
+
+// Comprobación de círculo contra paredes (AABB)
+function checkWallCollision(x, y, radius) {
+    let r = radius;
+    let minCol = Math.floor((x - r) / tileSize);
+    let maxCol = Math.floor((x + r) / tileSize);
+    let minRow = Math.floor((y - r) / tileSize);
+    let maxRow = Math.floor((y + r) / tileSize);
+
+    for (let row = minRow; row <= maxRow; row++) {
+        for (let col = minCol; col <= maxCol; col++) {
+            if (row < 0 || row >= gridHeight || col < 0 || col >= gridWidth) {
+                return true; 
+            }
+            let cell = maze[row][col];
+            if (cell === 1 || cell === 2) { 
+                let closestX = Math.max(col * tileSize, Math.min(x, (col + 1) * tileSize));
+                let closestY = Math.max(row * tileSize, Math.min(y, (row + 1) * tileSize));
+                
+                let distX = x - closestX;
+                let distY = y - closestY;
+                let distSq = distX * distX + distY * distY;
+                
+                if (distSq < r * r) {
+                    return true; 
+                }
+            }
+        }
+    }
+    return false;
+}
+
+// Avanzar nivel y premiar ganador
+function advanceLevel(winner) {
+    playSound('levelUp');
+    gameRunning = false;
+    
+    let winnerMsg = "";
+    if (gameMode === '2P') {
+        if (winner === 'P1') {
+            scoreP1++;
+            scoreP1Label.textContent = `${scoreP1} pts`;
+            winnerMsg = "🏆 ¡P1 (Morado) llegó primero y gana el nivel!";
+        } else {
+            scoreP2++;
+            scoreP2Label.textContent = `${scoreP2} pts`;
+            winnerMsg = "🏆 ¡P2 (Verde) llegó primero y gana el nivel!";
+        }
+    } else {
+        winnerMsg = "🎉 ¡Nivel Superado con Éxito!";
+    }
+
+    if(currentLevel < 20) {
+        currentLevel++;
+        overlayIcons.innerHTML = "🕷️🏁🕷️";
+        overlayTitle.innerHTML = winnerMsg;
+        overlayDesc.textContent = `Prepárate para el nivel ${currentLevel}. Las paredes cambiarán de color, se recargarán las bombas y el laberinto será más complejo.`;
+        
+        menuModes.classList.add('hidden');
+        btnContinue.classList.remove('hidden');
+        screenOverlay.classList.remove('opacity-0', 'pointer-events-none');
+    } else {
+        // Juego terminado (Nivel 20 completado)
+        let finalTitle = "🏆 ¡FIN DE LA PARTIDA! 🏆";
+        let finalDesc = "";
+
+        if (gameMode === '2P') {
+            if (scoreP1 > scoreP2) {
+                finalDesc = `¡El Jugador 1 gana la competencia final de 20 niveles con ${scoreP1} puntos frente a ${scoreP2} del Jugador 2!`;
+            } else if (scoreP2 > scoreP1) {
+                finalDesc = `¡El Jugador 2 gana la competencia final de 20 niveles con ${scoreP2} puntos frente a ${scoreP1} del Jugador 1!`;
+            } else {
+                finalDesc = `¡Es un empate técnico absoluto! Ambos lograron acumular ${scoreP1} puntos a lo largo de los 20 niveles.`;
+            }
+        } else {
+            finalDesc = "¡Felicidades! Lograste guiar a la arañita a través de los 20 laberintos arcade más complicados.";
+        }
+
+        overlayIcons.innerHTML = "🏆👑🏆";
+        overlayTitle.innerHTML = finalTitle;
+        overlayDesc.textContent = finalDesc;
+        
+        // Volver a mostrar selección de modos
+        menuModes.classList.remove('hidden');
+        btnContinue.classList.add('hidden');
+        screenOverlay.classList.remove('opacity-0', 'pointer-events-none');
+    }
+}
+
+// --- RENDERIZADO VISUAL EN EL LIENZO (Canvas) ---
+let animationFrame = 0;
+
+function drawSpider(p, bodyColor, legColor, faceColor) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.currentAngle);
+
+    // Animación de patitas
+    let wiggle = Math.sin(animationFrame * 0.25) * 0.25;
+
+    // 8 Patas curvas
+    ctx.strokeStyle = legColor;
+    ctx.lineWidth = Math.max(1.2, tileSize * 0.08);
+    for (let i = 0; i < 8; i++) {
+        let side = i < 4 ? -1 : 1; 
+        let angleOffset = (i % 4) * (Math.PI / 5) - (Math.PI * 0.3);
+        let angle = (side === 1 ? 0 : Math.PI) + angleOffset + wiggle * side;
+
+        let startX = Math.cos(angle) * (p.radius * 0.5);
+        let startY = Math.sin(angle) * (p.radius * 0.5);
+        let controlX = Math.cos(angle) * (p.radius * 1.3);
+        let controlY = Math.sin(angle) * (p.radius * 1.3) - 3;
+        let endX = Math.cos(angle) * (p.radius * 1.6);
+        let endY = Math.sin(angle) * (p.radius * 1.6);
+
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+        ctx.stroke();
+    }
+
+    // Cuerpo principal
+    ctx.fillStyle = bodyColor;
+    ctx.beginPath();
+    ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Toque de caricatura / chapitas
+    ctx.fillStyle = faceColor;
+    ctx.beginPath();
+    ctx.arc(-p.radius * 0.4, 0, p.radius * 0.25, 0, Math.PI * 2);
+    ctx.arc(p.radius * 0.4, 0, p.radius * 0.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ojos
+    let eyeRad = p.radius * 0.26;
+    let eyeDist = p.radius * 0.35;
+
+    // Ojo Izquierdo
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(-eyeDist, -p.radius * 0.3, eyeRad, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000000';
+    ctx.beginPath();
+    ctx.arc(-eyeDist + 1, -p.radius * 0.3, eyeRad * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ojo Derecho
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(eyeDist, -p.radius * 0.3, eyeRad, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000000';
+    ctx.beginPath();
+    ctx.arc(eyeDist - 1, -p.radius * 0.3, eyeRad * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+}
+
+function drawGame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let config = LEVEL_CONFIGS[currentLevel - 1];
+
+    // 1. Dibujar Laberinto (Paredes)
+    for (let r = 0; r < gridHeight; r++) {
+        for (let c = 0; c < gridWidth; c++) {
+            if (maze[r][c] === 1) {
+                // Sombra 3D retro de la pared
+                ctx.fillStyle = config.trailColor;
+                ctx.fillRect(c * tileSize, r * tileSize + 2, tileSize + 0.2, tileSize + 0.2);
+
+                // Parte frontal brillante de la pared
+                ctx.fillStyle = config.wallColor;
+                ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+                
+                // Detalle estético
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.strokeRect(c * tileSize + 0.5, r * tileSize + 0.5, tileSize - 1, tileSize - 1);
+            } else {
+                ctx.fillStyle = '#06040d';
+                ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+            }
+        }
+    }
+
+    // 2. Dibujar Meta (Bandera arcade)
+    let gX = goal.col * tileSize + tileSize / 2;
+    let gY = goal.row * tileSize + tileSize / 2;
+    ctx.save();
+    ctx.translate(gX, gY);
+    ctx.scale(tileSize / 24, tileSize / 24);
+    ctx.font = '16px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText("🏁", 0, 0);
+    // Efecto de neón expansivo en la meta
+    ctx.strokeStyle = '#ec4899';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 10 + Math.sin(animationFrame * 0.1) * 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // 3. Dibujar Puertas
+    doors.forEach(d => {
+        if(d.active) {
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(d.col * tileSize, d.row * tileSize, tileSize, tileSize);
+            
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(d.col * tileSize + 2, d.row * tileSize + 2, tileSize - 4, tileSize - 4);
+            
+            ctx.font = `${tileSize * 0.5}px serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText("🔒", d.col * tileSize + tileSize / 2, d.row * tileSize + tileSize / 2);
+        }
+    });
+
+    // 4. Dibujar Llaves
+    keys.forEach(k => {
+        if(k.active) {
+            let kX = k.col * tileSize + tileSize / 2;
+            let kY = k.row * tileSize + tileSize / 2;
+            ctx.save();
+            ctx.translate(kX, kY);
+            // Efecto flotante arcade
+            ctx.translate(0, Math.sin(animationFrame * 0.15) * 2.5);
+            ctx.font = `${tileSize * 0.65}px serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText("🔑", 0, 0);
+            ctx.restore();
+        }
+    });
+
+    // 5. Dibujar Proyectiles de Bomba Activos
+    activeBombs.forEach(b => {
+        ctx.save();
+        ctx.translate(b.x, b.y);
+
+        // Cuerpo de la bomba esférica
+        ctx.fillStyle = '#1e293b';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, tileSize * 0.38, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Mecha / Fusible
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(-tileSize * 0.1, -tileSize * 0.48, tileSize * 0.2, tileSize * 0.1);
+
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, -tileSize * 0.48);
+        let wiggle = Math.sin(animationFrame * 0.4) * 2.5;
+        ctx.quadraticCurveTo(wiggle, -tileSize * 0.65, wiggle, -tileSize * 0.75);
+        ctx.stroke();
+
+        // Chispa ardiendo (Alterna colores amarillo y rojo)
+        ctx.fillStyle = (animationFrame % 2 === 0) ? '#f59e0b' : '#ef4444';
+        ctx.beginPath();
+        ctx.arc(wiggle, -tileSize * 0.75, 3.5 + Math.sin(animationFrame * 0.5) * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    });
+
+    // 6. Dibujar Explosiones (Anillos expansivos de fuego)
+    activeExplosions.forEach(exp => {
+        ctx.save();
+        let scalePct = (15 - exp.timer) / 15; // De 0.0 a 1.0
+        let currentRad = exp.maxRadius * scalePct;
+
+        let grad = ctx.createRadialGradient(exp.x, exp.y, currentRad * 0.1, exp.x, exp.y, currentRad);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        grad.addColorStop(0.2, 'rgba(245, 158, 11, 0.9)'); // Amarillo brillante
+        grad.addColorStop(0.6, 'rgba(239, 68, 68, 0.6)');  // Rojo fuego
+        grad.addColorStop(1, 'rgba(239, 68, 68, 0)');      // Transparencia exterior
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(exp.x, exp.y, currentRad, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    });
+
+    // 7. Dibujar Arañitas
+    drawSpider(player1, player1.color, player1.legColor, player1.faceColor);
+    
+    if (player2.active) {
+        drawSpider(player2, player2.color, player2.legColor, player2.faceColor);
+    }
+
+    animationFrame++;
+}
+
+// --- BUCLE PRINCIPAL (Game Loop) ---
+function updateAndRender() {
+    if (!gameRunning) return;
+    updatePhysics();
+    drawGame();
+    requestAnimationFrame(updateAndRender);
+}
+</script>
+</body>
+</html>
